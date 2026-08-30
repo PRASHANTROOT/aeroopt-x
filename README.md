@@ -1,4 +1,3 @@
-@"
 # AeroOpt-X 🚀
 
 > Automated 3D Aerodynamic Shape & Trajectory Optimization Engine for Aerospace Vehicles.
