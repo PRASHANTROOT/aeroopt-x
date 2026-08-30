@@ -1,4 +1,10 @@
-﻿import pytest
+﻿import sys
+from pathlib import Path
+
+# Add src directory to Python path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+
+import pytest
 import numpy as np
 from aeroopt.geometry.nose_cone import NoseConeGenerator
 from aeroopt.geometry.drone_arm import DroneArmGenerator
