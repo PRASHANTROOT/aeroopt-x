@@ -1,0 +1,11 @@
+﻿version: '3.8'
+
+services:
+  aeroopt-x:
+    build: .
+    container_name: aeroopt_x_app
+    ports:
+      - "8501:8501"
+    environment:
+      - PYTHONPATH=src
+    restart: unless-stopped
