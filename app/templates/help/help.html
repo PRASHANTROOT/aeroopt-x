@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+
+    <meta charset="UTF-8" />
+
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+
+    <title>AeroOpt-X Help Center</title>
+
+    <link
+      rel="preconnect"
+      href="https://fonts.googleapis.com"
+    />
+
+    <link
+      rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin
+    />
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/help.css') }}"
+    />
+
+  </head>
+
+
+  <body>
+
+    <header class="topbar">
+
+      <a
+        href="{{ url_for('index') }}"
+        class="brand"
+      >
+
+        <div class="brand-mark">
+          ?
+        </div>
+
+        <div>
+
+          <div class="brand-name">
+            AeroOpt-X
+          </div>
+
+          <div class="brand-subtitle">
+            Help Center
+          </div>
+
+        </div>
+
+      </a>
+
+
+      <nav class="top-nav">
+
+        <a
+          href="{{ url_for('index') }}"
+          class="nav-link"
+        >
+          ← Back to Engine
+        </a>
+
+
+        <a
+          href="{{ url_for('documentation') }}"
+          class="nav-link"
+        >
+          Documentation
+        </a>
+
+
+        <button
+          id="themeToggle"
+          class="theme-btn"
+          type="button"
+        >
+          ◐
+        </button>
+
+      </nav>
+
+    </header>
+
+
+    <main class="help-main">
+
+      <!-- HERO -->
+
+      <section class="help-hero">
+
+        <div class="eyebrow">
+          SUPPORT CENTER
+        </div>
+
+        <h1>
+          How can we help?
+        </h1>
+
+        <p>
+
+          Find answers for running aerodynamic analysis,
+          optimization, trajectory simulations, and
+          troubleshooting AeroOpt-X.
+
+        </p>
+
+
+        <div class="search-box">
+
+          <input
+            type="text"
+            id="helpSearch"
+            placeholder="Search help topics..."
+          />
+
+          <span>
+            ⌕
+          </span>
+
+        </div>
+
+      </section>
+
+
+      <!-- QUICK HELP -->
+
+      <section class="help-section">
+
+        <div class="section-header">
+
+          <h2>
+            Quick Help
+          </h2>
+
+          <p>
+            Start with the most common AeroOpt-X questions.
+          </p>
+
+        </div>
+
+
+        <div class="help-grid">
+
+          <a
+            href="{{ url_for('documentation') }}#getting-started"
+            class="help-card"
+          >
+
+            <div class="card-icon">
+              ▶
+            </div>
+
+            <h3>
+              Getting Started
+            </h3>
+
+            <p>
+              Learn how to configure and run your first analysis.
+            </p>
+
+          </a>
+
+
+          <a
+            href="{{ url_for('documentation') }}#optimization"
+            class="help-card"
+          >
+
+            <div class="card-icon">
+              ⚙
+            </div>
+
+            <h3>
+              Optimization
+            </h3>
+
+            <p>
+              Understand the SciPy SLSQP optimization workflow.
+            </p>
+
+          </a>
+
+
+          <a
+            href="{{ url_for('documentation') }}#trajectory"
+            class="help-card"
+          >
+
+            <div class="card-icon">
+              ↗
+            </div>
+
+            <h3>
+              Flight Simulation
+            </h3>
+
+            <p>
+              Configure and interpret 2DOF trajectory results.
+            </p>
+
+          </a>
+
+
+          <a
+            href="{{ url_for('documentation') }}#api"
+            class="help-card"
+          >
+
+            <div class="card-icon">
+              &lt;/&gt;
+            </div>
+
+            <h3>
+              API Reference
+            </h3>
+
+            <p>
+              View the available AeroOpt-X backend endpoints.
+            </p>
+
+          </a>
+
+        </div>
+
+      </section>
+
+
+      <!-- FAQ -->
+
+      <section class="help-section">
+
+        <div class="section-header">
+
+          <h2>
+            Frequently Asked Questions
+          </h2>
+
+        </div>
+
+
+        <div
+          class="faq-list"
+          id="faqList"
+        >
+
+
+          <article class="faq-item">
+
+            <button
+              class="faq-question"
+              type="button"
+            >
+
+              <span>
+                Why do I see empty results?
+              </span>
+
+              <span class="faq-icon">
+                +
+              </span>
+
+            </button>
+
+
+            <div class="faq-answer">
+
+              <p>
+
+                Results remain empty until a valid backend request
+                completes successfully. Check that the Flask server
+                is running and inspect the browser console and
+                terminal for API errors.
+
+              </p>
+
+            </div>
+
+          </article>
+
+
+          <article class="faq-item">
+
+            <button
+              class="faq-question"
+              type="button"
+            >
+
+              <span>
+                Why does clicking Analyze not produce a graph?
+              </span>
+
+              <span class="faq-icon">
+                +
+              </span>
+
+            </button>
+
+
+            <div class="faq-answer">
+
+              <p>
+
+                The graph requires successful data from
+                <code>/api/analyze</code>. Confirm that the
+                backend is running and that the API response
+                returns <code>"status": "success"</code>.
+
+              </p>
+
+            </div>
+
+          </article>
+
+
+          <article class="faq-item">
+
+            <button
+              class="faq-question"
+              type="button"
+            >
+
+              <span>
+                What units should I use?
+              </span>
+
+              <span class="faq-icon">
+                +
+              </span>
+
+            </button>
+
+
+            <div class="faq-answer">
+
+              <p>
+
+                The backend aerodynamic calculations use metric
+                values. The interface can display meters or feet,
+                but values sent to the backend should be correctly
+                converted by the frontend logic.
+
+              </p>
+
+            </div>
+
+          </article>
+
+
+          <article class="faq-item">
+
+            <button
+              class="faq-question"
+              type="button"
+            >
+
+              <span>
+                Why does optimization take longer than normal?
+              </span>
+
+              <span class="faq-icon">
+                +
+              </span>
+
+            </button>
+
+
+            <div class="faq-answer">
+
+              <p>
+
+                Optimization performs repeated aerodynamic
+                calculations while the SLSQP solver searches for
+                an improved geometry parameter.
+
+              </p>
+
+            </div>
+
+          </article>
+
+
+          <article class="faq-item">
+
+            <button
+              class="faq-question"
+              type="button"
+            >
+
+              <span>
+                Why is the trajectory result different after changing inputs?
+              </span>
+
+              <span class="faq-icon">
+                +
+              </span>
+
+            </button>
+
+
+            <div class="faq-answer">
+
+              <p>
+
+                Trajectory output depends on thrust, burn duration,
+                wind, vehicle mass, drag coefficient, and simulation
+                time step.
+
+              </p>
+
+            </div>
+
+          </article>
+
+
+          <article class="faq-item">
+
+            <button
+              class="faq-question"
+              type="button"
+            >
+
+              <span>
+                How do I return to the main AeroOpt-X Engine?
+              </span>
+
+              <span class="faq-icon">
+                +
+              </span>
+
+            </button>
+
+
+            <div class="faq-answer">
+
+              <p>
+
+                Use the Back to Engine button in the top navigation
+                to return to the main analysis workspace.
+
+              </p>
+
+            </div>
+
+          </article>
+
+        </div>
+
+      </section>
+
+
+      <!-- TROUBLESHOOTING -->
+
+      <section class="help-section">
+
+        <div class="section-header">
+
+          <h2>
+            Troubleshooting
+          </h2>
+
+          <p>
+            Common problems and what to check.
+          </p>
+
+        </div>
+
+
+        <div class="troubleshoot-grid">
+
+
+          <div class="trouble-card">
+
+            <div class="trouble-status error">
+              ERROR
+            </div>
+
+            <h3>
+              Page does not load
+            </h3>
+
+            <ul>
+
+              <li>
+                Confirm Flask is running.
+              </li>
+
+              <li>
+                Check the terminal for Python errors.
+              </li>
+
+              <li>
+                Confirm template file locations.
+              </li>
+
+            </ul>
+
+          </div>
+
+
+          <div class="trouble-card">
+
+            <div class="trouble-status warning">
+              CHECK
+            </div>
+
+            <h3>
+              API request failed
+            </h3>
+
+            <ul>
+
+              <li>
+                Check the browser console.
+              </li>
+
+              <li>
+                Check Flask server logs.
+              </li>
+
+              <li>
+                Verify the API route exists.
+              </li>
+
+            </ul>
+
+          </div>
+
+
+          <div class="trouble-card">
+
+            <div class="trouble-status good">
+              TIP
+            </div>
+
+            <h3>
+              Results look unexpected
+            </h3>
+
+            <ul>
+
+              <li>
+                Verify geometry inputs.
+              </li>
+
+              <li>
+                Check Mach number and altitude.
+              </li>
+
+              <li>
+                Compare multiple configurations.
+              </li>
+
+            </ul>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- CONTACT / DOCS -->
+
+      <section class="help-footer-card">
+
+        <div>
+
+          <div class="eyebrow">
+            MORE INFORMATION
+          </div>
+
+          <h2>
+            Need technical details?
+          </h2>
+
+          <p>
+
+            The documentation contains information about the
+            AeroOpt-X workflow, analysis modules, and backend API.
+
+          </p>
+
+        </div>
+
+
+        <a
+          href="{{ url_for('documentation') }}"
+          class="docs-button"
+        >
+
+          Open Documentation
+          →
+
+        </a>
+
+      </section>
+
+
+    </main>
+
+
+    <script
+      src="{{ url_for('static', filename='js/help.js') }}"
+    ></script>
+
+  </body>
+</html>

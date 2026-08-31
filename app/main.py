@@ -1,179 +1,1565 @@
-﻿import sys
+﻿import os
+import sys
 from pathlib import Path
 
-# Add src directory to Python path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-
-import streamlit as st
 import numpy as np
-import plotly.graph_objects as go
 
-from aeroopt.geometry.nose_cone import NoseConeGenerator
-from aeroopt.geometry.drone_arm import DroneArmGenerator
-from aeroopt.geometry.stl_exporter import STLExporter
-from aeroopt.geometry.flow_visualizer import FlowVisualizer
-from aeroopt.physics.drag_solver import DragSolver
-from aeroopt.physics.trajectory import DynamicTrajectory2DOF
-from aeroopt.physics.aerothermal import AeroThermalEngine
-from aeroopt.optimizer.objective import AeroOptimizer
+from flask import (
+    Flask,
+    jsonify,
+    render_template,
+    request,
+)
 
-st.set_page_config(page_title="AeroOpt-X Suite", page_icon="🚀", layout="wide")
 
-st.title("🚀 AeroOpt-X: Aerodynamic Shape, Thermal & Trajectory Suite")
-st.markdown("Automated 3D aerodynamic shape optimization, hypersonic thermal shocks, 2DOF trajectory modeling, and parametric sweeps.")
+# ------------------------------------------------------------
+# PROJECT PATH SETUP
+# ------------------------------------------------------------
 
-tab1, tab2, tab3, tab4 = st.tabs([
-    "🚀 Rocket Nose Cone & CFD", 
-    "🌡️ Thermal Shock & Hypersonics", 
-    "📈 2DOF Flight Trajectory", 
-    "🌐 Parametric Sweeps & Reports"
-])
+PROJECT_ROOT = (
+    Path(__file__)
+    .resolve()
+    .parent
+    .parent
+)
 
-# Sidebar Presets
-st.sidebar.header("🛩️ Multi-Geometry Vehicle Presets")
-preset_choice = st.sidebar.selectbox("Load Real-World Vehicle Profile", list(AeroThermalEngine.PRESETS.keys()))
-preset_data = AeroThermalEngine.PRESETS[preset_choice]
+SRC_PATH = (
+    PROJECT_ROOT
+    / "src"
+)
 
-with tab1:
-    st.header("Rocket Nose Cone Drag Optimization")
-    col_input, col_viz = st.columns([1, 2])
-    
-    with col_input:
-        st.subheader("⚙️ Input Parameters & Units")
-        unit_choice = st.selectbox("Select Measurement Unit", ["Meters (m)", "Centimeters (cm)", "Inches (in)", "Feet (ft)"], index=0)
-        unit_scale = {"Meters (m)": 1.0, "Centimeters (cm)": 0.01, "Inches (in)": 0.0254, "Feet (ft)": 0.3048}[unit_choice]
-        unit_label = unit_choice.split(" ")[1].replace("(", "").replace(")", "")
+if str(SRC_PATH) not in sys.path:
 
-        input_type = st.radio("Input Mode", ["Sliders", "Custom Exact Value"], horizontal=True)
-        
-        default_len = preset_data["length"] / unit_scale
-        default_rad = preset_data["radius"] / unit_scale
-        default_mach = preset_data["mach"]
+    sys.path.insert(
+        0,
+        str(SRC_PATH),
+    )
 
-        if input_type == "Sliders":
-            raw_length = st.slider(f"Length ({unit_label})", 0.01, 50.0, float(default_len), key="r_len_s")
-            raw_radius = st.slider(f"Base Radius ({unit_label})", 0.001, 5.0, float(default_rad), key="r_rad_s")
-        else:
-            raw_length = st.number_input(f"Custom Length ({unit_label})", min_value=0.001, value=float(default_len), step=0.01, key="r_len_n")
-            raw_radius = st.number_input(f"Custom Base Radius ({unit_label})", min_value=0.0001, value=float(default_rad), step=0.005, key="r_rad_n")
 
-        mach = st.slider("Mach Speed", 0.1, 8.0, float(default_mach), 0.1, key="r_mach")
-        altitude = st.number_input("Target Altitude (m)", min_value=0, max_value=50000, value=0, step=500, key="r_alt")
+# ------------------------------------------------------------
+# AEROOPT-X CORE MODULES
+# ------------------------------------------------------------
 
-        length_m = raw_length * unit_scale
-        radius_m = raw_radius * unit_scale
+from aeroopt.geometry.nose_cone import (
+    NoseConeGenerator,
+)
 
-        if st.button("⚡ Run SciPy Optimization Loop"):
-            optimizer = AeroOptimizer(length=length_m, target_radius=radius_m)
-            best_k = optimizer.optimize_parabolic_parameter()
-            st.success(f"Optimized Parabolic Curve Factor K: {best_k:.4f}")
+from aeroopt.physics.drag_solver import (
+    DragSolver,
+)
 
-    gen = NoseConeGenerator(length=length_m, base_radius=radius_m)
-    x_sh, y_sh = gen.sears_haack()
-    x_vk, y_vk = gen.von_karman()
-    x_og, y_og = gen.ogive()
+from aeroopt.optimizer.objective import (
+    AeroOptimizer,
+)
 
-    solver = DragSolver(mach_number=mach, altitude_m=altitude)
-    drag_sh = solver.compute_wave_drag_factor(x_sh, y_sh)
-    drag_vk = solver.compute_wave_drag_factor(x_vk, y_vk)
-    drag_og = solver.compute_wave_drag_factor(x_og, y_og)
+from aeroopt.physics.aerothermal import (
+    AeroThermalEngine,
+)
 
-    with col_viz:
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Sears-Haack Drag Factor", f"{drag_sh:.5f}", "Optimal Wave Drag")
-        m2.metric("Von Kármán Drag Factor", f"{drag_vk:.5f}")
-        m3.metric("Tangent Ogive Drag Factor", f"{drag_og:.5f}")
+from aeroopt.physics.trajectory import (
+    DynamicTrajectory2DOF,
+)
 
-        st.subheader("📋 Engineering Analysis & Conclusion")
-        fineness_ratio = length_m / (2 * radius_m) if radius_m > 0 else 0
-        drag_diff_pct = ((drag_og - drag_sh) / drag_og * 100) if drag_og > 0 else 0
 
-        st.info(f"""
-        **Nose Cone Performance Summary:**
-        * **Fineness Ratio (/D$):** {fineness_ratio:.2f} (Optimal supersonic efficiency: 3.0 - 6.0).
-        * **Percentage Drag Reduction:** **Sears-Haack** reduces wave drag by **{drag_diff_pct:.1f}%** vs Ogive profile at Mach {mach:.1f}.
-        * **Active Vehicle Preset:** {preset_choice}
-        """)
+# ------------------------------------------------------------
+# FLASK APPLICATION
+# ------------------------------------------------------------
 
-        # 3D Solid Surface Viewport
-        flow_viz = FlowVisualizer(x_sh, y_sh, mach=mach)
-        fig_3d = flow_viz.create_3d_mesh_figure()
-        st.plotly_chart(fig_3d, use_container_width=True)
+app = Flask(
+    __name__,
+    template_folder="templates",
+)
 
-        # 3D STL Download
-        exporter = STLExporter(x_sh, y_sh)
-        st.download_button("📦 Download 3D STL CAD File", exporter.export_stl_bytes(), "sears_haack_nosecone.stl", "model/stl")
 
-with tab2:
-    st.header("🌡️ Hypersonic Thermal & Oblique Shockwave Visualizer")
-    col_th1, col_th2 = st.columns([1, 2])
-    
-    thermal_engine = AeroThermalEngine(mach=mach, altitude_m=altitude)
-    stagnation_temp_k = thermal_engine.compute_stagnation_temperature()
-    stagnation_temp_c = stagnation_temp_k - 273.15
-    half_angle = np.arctan(radius_m / length_m) if length_m > 0 else 0
-    shock_angle = thermal_engine.compute_oblique_shock_angle(half_angle)
+# ------------------------------------------------------------
+# UTILITY FUNCTIONS
+# ------------------------------------------------------------
 
-    with col_th1:
-        st.metric("Tip Stagnation Temperature", f"{stagnation_temp_c:.1f} °C", f"{stagnation_temp_k:.1f} K")
-        st.metric("Oblique Shock Angle (β)", f"{shock_angle:.1f}°" if mach > 1.0 else "N/A (Subsonic)", "Attached Shockwave Angle")
-        st.warning(f"Thermal Boundary Regime: {'🔥 High Aerodynamic Heating' if mach >= 3.0 else '❄️ Nominal Heating'}")
-
-    with col_th2:
-        st.subheader("Flow Velocity Contours & Shock Wave Boundary")
-        gx, gy, u, v, v_mag = flow_viz.generate_flow_field()
-        fig_flow = go.Figure(data=go.Contour(z=v_mag, x=gx[0], y=gy[:, 0], colorscale='Jet'))
-        fig_flow.add_trace(go.Scatter(x=x_sh / unit_scale, y=y_sh / unit_scale, mode='lines', line=dict(color='white', width=3)))
-        fig_flow.add_trace(go.Scatter(x=x_sh / unit_scale, y=-y_sh / unit_scale, mode='lines', line=dict(color='white', width=3), showlegend=False))
-        fig_flow.update_layout(template="plotly_dark", height=400, xaxis_title=f"X ({unit_label})", yaxis_title=f"Y ({unit_label})")
-        st.plotly_chart(fig_flow, use_container_width=True)
-
-with tab3:
-    st.header("📈 2DOF Flight Trajectory & Gravity Turn Simulator")
-    col_tr1, col_tr2 = st.columns([1, 2])
-    
-    with col_tr1:
-        thrust = st.slider("Motor Thrust (N)", 50.0, 500.0, 150.0, 10.0)
-        burn_time = st.slider("Burn Duration (s)", 1.0, 10.0, 2.5, 0.5)
-        wind_speed = st.slider("Crosswind Speed (m/s)", 0.0, 25.0, 5.0, 1.0)
-
-    sim_2d = DynamicTrajectory2DOF(dry_mass=1.5, thrust=thrust, burn_time=burn_time, drag_cd=drag_sh * 10, wind_speed=wind_speed)
-    t_2d, x_2d, y_2d, v_2d = sim_2d.run_2d_simulation()
-
-    with col_tr2:
-        st.metric("Apogee (Max Altitude)", f"{max(y_2d):.1f} m", f"Downrange Distance: {x_2d[-1]:.1f} m")
-        fig_traj = go.Figure()
-        fig_traj.add_trace(go.Scatter(x=x_2d, y=y_2d, mode='lines', name='2DOF Trajectory (Gravity Turn)', line=dict(color='#00E676', width=3)))
-        fig_traj.update_layout(xaxis_title="Downrange X (m)", yaxis_title="Altitude Y (m)", template="plotly_dark", height=400)
-        st.plotly_chart(fig_traj, use_container_width=True)
-
-with tab4:
-    st.header("🌐 Parametric Sweeps & Technical Report Export")
-    
-    # 2D Parametric Heatmap Plot
-    st.subheader("Wave Drag Factor Sensitivity (Mach Speed vs Fineness Ratio)")
-    m_arr, f_arr, drag_grid = AeroThermalEngine.generate_parametric_sweep()
-    fig_heat = go.Figure(data=go.Heatmap(z=drag_grid, x=m_arr, y=f_arr, colorscale='Viridis'))
-    fig_heat.update_layout(xaxis_title="Mach Speed (M)", yaxis_title="Fineness Ratio (L/D)", template="plotly_dark", height=400)
-    st.plotly_chart(fig_heat, use_container_width=True)
-
-    # Printable HTML Report Summary
-    st.subheader("📊 Executive Technical Summary Report")
-    report_html = f"""
-    <div style="background-color: #1E1E1E; padding: 20px; border-radius: 10px; border: 1px solid #333;">
-        <h2>AeroOpt-X Analysis Report</h2>
-        <p><b>Vehicle Profile:</b> {preset_choice}</p>
-        <p><b>Length:</b> {raw_length:.3f} {unit_label} | <b>Base Radius:</b> {raw_radius:.3f} {unit_label}</p>
-        <p><b>Target Mach:</b> {mach:.2f} | <b>Fineness Ratio (L/D):</b> {fineness_ratio:.2f}</p>
-        <hr>
-        <h4>Aerodynamic Performance Metrics</h4>
-        <ul>
-            <li><b>Sears-Haack Drag Factor:</b> {drag_sh:.5f}</li>
-            <li><b>Von Kármán Drag Factor:</b> {drag_vk:.5f}</li>
-            <li><b>Tangent Ogive Drag Factor:</b> {drag_og:.5f}</li>
-            <li><b>Stagnation Temperature:</b> {stagnation_temp_c:.1f} °C ({stagnation_temp_k:.1f} K)</li>
-            <li><b>Apogee Height:</b> {max(y_2d):.1f} m</li>
-        </ul>
-    </div>
+def to_float_list(values):
     """
-    st.markdown(report_html, unsafe_allow_html=True)
+    Convert NumPy arrays/scalars into JSON-safe
+    Python floats.
+    """
+
+    return [
+        float(value)
+        for value in values
+    ]
+
+
+def get_ambient_temperature(
+    altitude_m,
+):
+    """
+    Simple ISA temperature model.
+
+    Valid as a simplified model for the current
+    AeroOpt-X analysis.
+    """
+
+    altitude_m = max(
+        float(altitude_m),
+        0.0,
+    )
+
+    if altitude_m <= 11000:
+
+        return (
+            288.15
+            - (
+                0.0065
+                * altitude_m
+            )
+        )
+
+    return 216.65
+
+
+def get_dynamic_pressure(
+    density,
+    velocity,
+):
+    """
+    Dynamic pressure:
+
+    q = 0.5 * rho * V^2
+    """
+
+    return float(
+        0.5
+        * density
+        * velocity ** 2
+    )
+
+
+def json_error(
+    message,
+    status_code=400,
+):
+
+    return jsonify({
+        "status": "error",
+        "message": message,
+    }), status_code
+
+
+# ------------------------------------------------------------
+# FRONTEND ROUTES
+# ------------------------------------------------------------
+
+@app.route(
+    "/",
+    methods=["GET"],
+)
+def index():
+
+    return render_template(
+        "index.html"
+    )
+
+
+@app.route(
+    "/documentation",
+    methods=["GET"],
+)
+def documentation():
+
+    return render_template(
+        "documentation/documentation.html"
+    )
+
+
+@app.route(
+    "/help",
+    methods=["GET"],
+)
+def help_page():
+
+    return render_template(
+        "help/help.html"
+    )
+
+
+# ------------------------------------------------------------
+# HEALTH CHECK
+# ------------------------------------------------------------
+
+@app.route(
+    "/api/health",
+    methods=["GET"],
+)
+def health():
+
+    return jsonify({
+        "status": "healthy",
+        "service": "AeroOpt-X",
+        "engine": (
+            "Python Aerodynamics Core"
+        ),
+    })
+
+
+# ------------------------------------------------------------
+# MAIN AERODYNAMIC ANALYSIS
+# ------------------------------------------------------------
+
+@app.route(
+    "/api/analyze",
+    methods=["POST"],
+)
+def analyze():
+
+    data = (
+        request.get_json(
+            silent=True
+        )
+        or {}
+    )
+
+    try:
+
+        # ====================================================
+        # INPUTS
+        # ====================================================
+
+        length = float(
+            data.get(
+                "length",
+                0.5,
+            )
+        )
+
+        radius = float(
+            data.get(
+                "radius",
+                0.05,
+            )
+        )
+
+        mach = float(
+            data.get(
+                "mach",
+                1.5,
+            )
+        )
+
+        altitude = float(
+            data.get(
+                "altitude",
+                0.0,
+            )
+        )
+
+        # ====================================================
+        # VALIDATION
+        # ====================================================
+
+        if length <= 0:
+
+            return json_error(
+                "Length must be greater than zero."
+            )
+
+        if radius <= 0:
+
+            return json_error(
+                "Radius must be greater than zero."
+            )
+
+        if mach <= 0:
+
+            return json_error(
+                "Mach number must be greater than zero."
+            )
+
+        if altitude < 0:
+
+            return json_error(
+                "Altitude cannot be negative."
+            )
+
+        # ====================================================
+        # 1. GEOMETRY GENERATION
+        # ====================================================
+
+        generator = (
+            NoseConeGenerator(
+                length=length,
+                base_radius=radius,
+                num_points=150,
+            )
+        )
+
+        x_sh, y_sh = (
+            generator.sears_haack()
+        )
+
+        x_vk, y_vk = (
+            generator.von_karman()
+        )
+
+        x_ogive, y_ogive = (
+            generator.ogive()
+        )
+
+        # ====================================================
+        # 2. DRAG SOLVER
+        # ====================================================
+
+        drag_solver = (
+            DragSolver(
+                mach_number=mach,
+                altitude_m=altitude,
+            )
+        )
+
+        drag_sh = (
+            drag_solver
+            .compute_wave_drag_factor(
+                x_sh,
+                y_sh,
+            )
+        )
+
+        drag_vk = (
+            drag_solver
+            .compute_wave_drag_factor(
+                x_vk,
+                y_vk,
+            )
+        )
+
+        drag_ogive = (
+            drag_solver
+            .compute_wave_drag_factor(
+                x_ogive,
+                y_ogive,
+            )
+        )
+
+        # ====================================================
+        # 3. SLSQP OPTIMIZATION
+        # ====================================================
+
+        optimizer = (
+            AeroOptimizer(
+                length=length,
+                target_radius=radius,
+            )
+        )
+
+        optimizer.solver = (
+            DragSolver(
+                mach_number=mach,
+                altitude_m=altitude,
+            )
+        )
+
+        optimal_k = (
+            optimizer
+            .optimize_parabolic_parameter()
+        )
+
+        x_opt, y_opt = (
+            generator.parabolic(
+                K=optimal_k,
+            )
+        )
+
+        drag_opt = (
+            drag_solver
+            .compute_wave_drag_factor(
+                x_opt,
+                y_opt,
+            )
+        )
+
+        # ====================================================
+        # 4. ATMOSPHERIC PROPERTIES
+        # ====================================================
+
+        air_density, speed_of_sound = (
+            drag_solver
+            .get_air_properties()
+        )
+
+        air_density = float(
+            air_density
+        )
+
+        speed_of_sound = float(
+            speed_of_sound
+        )
+
+        # ====================================================
+        # 5. FLIGHT VELOCITY
+        # ====================================================
+
+        velocity = (
+            mach
+            * speed_of_sound
+        )
+
+        dynamic_pressure = (
+            get_dynamic_pressure(
+                air_density,
+                velocity,
+            )
+        )
+
+        # ====================================================
+        # 6. AEROTHERMAL ANALYSIS
+        # ====================================================
+
+        thermal_engine = (
+            AeroThermalEngine(
+                mach=mach,
+                altitude_m=altitude,
+            )
+        )
+
+        ambient_temperature = (
+            get_ambient_temperature(
+                altitude
+            )
+        )
+
+        stagnation_temperature = (
+            thermal_engine
+            .compute_stagnation_temperature(
+                ambient_temp_k=(
+                    ambient_temperature
+                ),
+            )
+        )
+
+        half_angle_rad = float(
+            np.arctan(
+                radius
+                / length
+            )
+        )
+
+        half_angle_deg = float(
+            np.degrees(
+                half_angle_rad
+            )
+        )
+
+        # Detailed oblique shock analysis
+
+        shock_analysis = (
+            thermal_engine
+            .analyze_oblique_shock(
+                half_angle_rad=(
+                    half_angle_rad
+                ),
+                ambient_temp_k=(
+                    ambient_temperature
+                ),
+            )
+        )
+
+        shock_angle_deg = float(
+            shock_analysis[
+                "shock_angle_deg"
+            ]
+        )
+
+        mach_angle_deg = float(
+            shock_analysis[
+                "mach_angle_deg"
+            ]
+        )
+
+        post_shock_temperature = float(
+            shock_analysis[
+                "post_shock_temperature_k"
+            ]
+        )
+
+        thermal_severity = (
+            AeroThermalEngine
+            .get_thermal_severity(
+                stagnation_temperature
+            )
+        )
+
+        flow_regime = (
+            thermal_engine
+            .get_flow_regime()
+        )
+
+        # ====================================================
+        # 7. ENGINEERING COMPARISONS
+        # ====================================================
+
+        baseline_drag = min(
+            drag_sh,
+            drag_vk,
+            drag_ogive,
+        )
+
+        if baseline_drag > 0:
+
+            optimization_change_percent = (
+                (
+                    drag_opt
+                    - baseline_drag
+                )
+                / baseline_drag
+            ) * 100.0
+
+        else:
+
+            optimization_change_percent = 0.0
+
+        # ====================================================
+        # 8. FINENESS RATIO
+        # ====================================================
+
+        diameter = (
+            2.0
+            * radius
+        )
+
+        if diameter > 0:
+
+            fineness_ratio = (
+                length
+                / diameter
+            )
+
+        else:
+
+            fineness_ratio = 0.0
+
+        # ====================================================
+        # RESPONSE
+        # ====================================================
+
+        return jsonify({
+
+            "status": "success",
+
+            # ------------------------------------------------
+            # INPUT
+            # ------------------------------------------------
+
+            "input": {
+
+                "length": length,
+
+                "radius": radius,
+
+                "diameter": diameter,
+
+                "mach": mach,
+
+                "altitude": altitude,
+
+                "fineness_ratio": (
+                    float(
+                        fineness_ratio
+                    )
+                ),
+
+                "half_angle_deg": (
+                    half_angle_deg
+                ),
+            },
+
+            # ------------------------------------------------
+            # ATMOSPHERE
+            # ------------------------------------------------
+
+            "atmosphere": {
+
+                "air_density_kg_m3": (
+                    air_density
+                ),
+
+                "speed_of_sound_m_s": (
+                    speed_of_sound
+                ),
+
+                "ambient_temperature_k": (
+                    float(
+                        ambient_temperature
+                    )
+                ),
+
+                "velocity_m_s": (
+                    float(
+                        velocity
+                    )
+                ),
+
+                "dynamic_pressure_pa": (
+                    float(
+                        dynamic_pressure
+                    )
+                ),
+            },
+
+            # ------------------------------------------------
+            # DRAG
+            # ------------------------------------------------
+
+            "drag": {
+
+                "sears_haack": (
+                    float(
+                        drag_sh
+                    )
+                ),
+
+                "von_karman": (
+                    float(
+                        drag_vk
+                    )
+                ),
+
+                "ogive": (
+                    float(
+                        drag_ogive
+                    )
+                ),
+
+                "optimized_parabolic": (
+                    float(
+                        drag_opt
+                    )
+                ),
+            },
+
+            # ------------------------------------------------
+            # OPTIMIZATION
+            # ------------------------------------------------
+
+            "optimization": {
+
+                "method": (
+                    "SciPy SLSQP"
+                ),
+
+                "optimal_k": (
+                    float(
+                        optimal_k
+                    )
+                ),
+
+                "reference_drag": (
+                    float(
+                        baseline_drag
+                    )
+                ),
+
+                "optimized_drag": (
+                    float(
+                        drag_opt
+                    )
+                ),
+
+                "change_vs_best_reference_percent": (
+                    float(
+                        optimization_change_percent
+                    )
+                ),
+            },
+
+            # ------------------------------------------------
+            # THERMAL
+            # ------------------------------------------------
+
+            "thermal": {
+
+                "flow_regime": (
+                    flow_regime
+                ),
+
+                "ambient_temperature_k": (
+                    float(
+                        ambient_temperature
+                    )
+                ),
+
+                "stagnation_temperature_k": (
+                    float(
+                        stagnation_temperature
+                    )
+                ),
+
+                "post_shock_temperature_k": (
+                    post_shock_temperature
+                ),
+
+                "thermal_severity": (
+                    thermal_severity[
+                        "level"
+                    ]
+                ),
+
+                "thermal_message": (
+                    thermal_severity[
+                        "message"
+                    ]
+                ),
+            },
+
+            # ------------------------------------------------
+            # SHOCK ANALYSIS
+            # ------------------------------------------------
+
+            "shock": {
+
+                "applicable": (
+                    shock_analysis[
+                        "applicable"
+                    ]
+                ),
+
+                "shock_type": (
+                    shock_analysis[
+                        "shock_type"
+                    ]
+                ),
+
+                "status": (
+                    shock_analysis[
+                        "status"
+                    ]
+                ),
+
+                "shock_angle_deg": (
+                    shock_angle_deg
+                ),
+
+                "mach_angle_deg": (
+                    mach_angle_deg
+                ),
+
+                "deflection_angle_deg": (
+                    float(
+                        shock_analysis[
+                            "deflection_angle_deg"
+                        ]
+                    )
+                ),
+
+                "max_attached_deflection_deg": (
+                    float(
+                        shock_analysis[
+                            "max_attached_deflection_deg"
+                        ]
+                    )
+                ),
+
+                "normal_mach_1": (
+                    float(
+                        shock_analysis[
+                            "normal_mach_1"
+                        ]
+                    )
+                ),
+
+                "normal_mach_2": (
+                    float(
+                        shock_analysis[
+                            "normal_mach_2"
+                        ]
+                    )
+                ),
+
+                "post_shock_mach": (
+                    float(
+                        shock_analysis[
+                            "post_shock_mach"
+                        ]
+                    )
+                ),
+
+                "pressure_ratio": (
+                    float(
+                        shock_analysis[
+                            "pressure_ratio"
+                        ]
+                    )
+                ),
+
+                "temperature_ratio": (
+                    float(
+                        shock_analysis[
+                            "temperature_ratio"
+                        ]
+                    )
+                ),
+
+                "density_ratio": (
+                    float(
+                        shock_analysis[
+                            "density_ratio"
+                        ]
+                    )
+                ),
+            },
+
+            # ------------------------------------------------
+            # BACKWARD COMPATIBILITY
+            # ------------------------------------------------
+
+            "geometry": {
+
+                "x": (
+                    to_float_list(
+                        x_sh
+                    )
+                ),
+
+                "sears_haack": (
+                    to_float_list(
+                        y_sh
+                    )
+                ),
+
+                "von_karman": (
+                    to_float_list(
+                        y_vk
+                    )
+                ),
+
+                "ogive": (
+                    to_float_list(
+                        y_ogive
+                    )
+                ),
+
+                "optimized_parabolic": (
+                    to_float_list(
+                        y_opt
+                    )
+                ),
+            },
+
+            # ------------------------------------------------
+            # METADATA
+            # ------------------------------------------------
+
+            "metadata": {
+
+                "geometry_points": (
+                    len(
+                        x_sh
+                    )
+                ),
+
+                "optimizer": (
+                    "SLSQP"
+                ),
+
+                "analysis_engine": (
+                    "AeroOpt-X Python Core"
+                ),
+
+                "thermal_engine": (
+                    "Theta-Beta-M "
+                    "Oblique Shock Solver"
+                ),
+            },
+        })
+
+    except Exception as error:
+
+        app.logger.exception(
+            "AeroOpt-X analysis failed"
+        )
+
+        return jsonify({
+            "status": "error",
+            "message": str(
+                error
+            ),
+        }), 500
+
+
+# ------------------------------------------------------------
+# STANDALONE SLSQP OPTIMIZATION API
+# ------------------------------------------------------------
+
+@app.route(
+    "/api/optimize",
+    methods=["POST"],
+)
+def optimize():
+
+    data = (
+        request.get_json(
+            silent=True
+        )
+        or {}
+    )
+
+    try:
+
+        length = float(
+            data.get(
+                "length",
+                0.5,
+            )
+        )
+
+        radius = float(
+            data.get(
+                "radius",
+                0.05,
+            )
+        )
+
+        mach = float(
+            data.get(
+                "mach",
+                1.5,
+            )
+        )
+
+        altitude = float(
+            data.get(
+                "altitude",
+                0.0,
+            )
+        )
+
+        if length <= 0:
+            return json_error(
+                "Length must be greater than zero."
+            )
+
+        if radius <= 0:
+            return json_error(
+                "Radius must be greater than zero."
+            )
+
+        if mach <= 0:
+            return json_error(
+                "Mach number must be greater than zero."
+            )
+
+        if altitude < 0:
+            return json_error(
+                "Altitude cannot be negative."
+            )
+
+        generator = (
+            NoseConeGenerator(
+                length=length,
+                base_radius=radius,
+                num_points=150,
+            )
+        )
+
+        drag_solver = (
+            DragSolver(
+                mach_number=mach,
+                altitude_m=altitude,
+            )
+        )
+
+        optimizer = (
+            AeroOptimizer(
+                length=length,
+                target_radius=radius,
+            )
+        )
+
+        optimizer.solver = (
+            drag_solver
+        )
+
+        optimal_k = (
+            optimizer
+            .optimize_parabolic_parameter()
+        )
+
+        x_opt, y_opt = (
+            generator.parabolic(
+                K=optimal_k
+            )
+        )
+
+        drag_opt = (
+            drag_solver
+            .compute_wave_drag_factor(
+                x_opt,
+                y_opt,
+            )
+        )
+
+        x_sh, y_sh = (
+            generator.sears_haack()
+        )
+
+        drag_sh = (
+            drag_solver
+            .compute_wave_drag_factor(
+                x_sh,
+                y_sh,
+            )
+        )
+
+        if drag_sh > 0:
+
+            change_percent = (
+                (
+                    drag_opt
+                    - drag_sh
+                )
+                / drag_sh
+            ) * 100.0
+
+        else:
+
+            change_percent = 0.0
+
+        return jsonify({
+
+            "status": "success",
+
+            "input": {
+
+                "length": length,
+
+                "radius": radius,
+
+                "mach": mach,
+
+                "altitude": altitude,
+            },
+
+            "optimal_k": float(
+                optimal_k
+            ),
+
+            "optimization": {
+
+                "method": (
+                    "SciPy SLSQP"
+                ),
+
+                "optimal_k": float(
+                    optimal_k
+                ),
+
+                "optimized_drag": float(
+                    drag_opt
+                ),
+
+                "reference_drag_sears_haack": (
+                    float(
+                        drag_sh
+                    )
+                ),
+
+                "change_vs_sears_haack_percent": (
+                    float(
+                        change_percent
+                    )
+                ),
+            },
+
+            "geometry": {
+
+                "x": (
+                    to_float_list(
+                        x_opt
+                    )
+                ),
+
+                "optimized_parabolic": (
+                    to_float_list(
+                        y_opt
+                    )
+                ),
+            },
+
+            "metadata": {
+
+                "optimizer": (
+                    "SLSQP"
+                ),
+
+                "geometry_points": (
+                    len(
+                        x_opt
+                    )
+                ),
+            },
+        })
+
+    except Exception as error:
+
+        app.logger.exception(
+            "AeroOpt-X optimization failed"
+        )
+
+        return jsonify({
+            "status": "error",
+            "message": str(
+                error
+            ),
+        }), 500
+
+
+# ------------------------------------------------------------
+# REAL 2DOF TRAJECTORY API
+# ------------------------------------------------------------
+
+@app.route(
+    "/api/trajectory",
+    methods=["POST"],
+)
+def trajectory():
+
+    data = (
+        request.get_json(
+            silent=True
+        )
+        or {}
+    )
+
+    try:
+
+        thrust = float(
+            data.get(
+                "thrust",
+                150.0,
+            )
+        )
+
+        burn_time = float(
+            data.get(
+                "burn_time",
+                2.5,
+            )
+        )
+
+        wind_speed = float(
+            data.get(
+                "wind_speed",
+                5.0,
+            )
+        )
+
+        dry_mass = float(
+            data.get(
+                "dry_mass",
+                1.5,
+            )
+        )
+
+        wet_mass = float(
+            data.get(
+                "wet_mass",
+                2.5,
+            )
+        )
+
+        drag_cd = float(
+            data.get(
+                "drag_cd",
+                0.15,
+            )
+        )
+
+        pitch_kick_time = float(
+            data.get(
+                "pitch_kick_time",
+                0.5,
+            )
+        )
+
+        dt = float(
+            data.get(
+                "dt",
+                0.01,
+            )
+        )
+
+        if thrust < 0:
+            return json_error(
+                "Thrust cannot be negative."
+            )
+
+        if burn_time <= 0:
+            return json_error(
+                "Burn duration must be greater than zero."
+            )
+
+        if wind_speed < 0:
+            return json_error(
+                "Wind speed cannot be negative."
+            )
+
+        if dry_mass <= 0:
+            return json_error(
+                "Dry mass must be greater than zero."
+            )
+
+        if wet_mass <= dry_mass:
+            return json_error(
+                "Wet mass must be greater than dry mass."
+            )
+
+        if dt <= 0:
+            return json_error(
+                "Simulation time step must be greater than zero."
+            )
+
+        simulator = (
+            DynamicTrajectory2DOF(
+                dry_mass=dry_mass,
+                wet_mass=wet_mass,
+                thrust=thrust,
+                burn_time=burn_time,
+                drag_cd=drag_cd,
+                wind_speed=wind_speed,
+            )
+        )
+
+        t, x, y, velocity = (
+            simulator.run_2d_simulation(
+                pitch_kick_time=(
+                    pitch_kick_time
+                ),
+                dt=dt,
+            )
+        )
+
+        apogee_index = int(
+            np.argmax(
+                y
+            )
+        )
+
+        apogee = float(
+            y[
+                apogee_index
+            ]
+        )
+
+        apogee_time = float(
+            t[
+                apogee_index
+            ]
+        )
+
+        downrange = float(
+            x[-1]
+        )
+
+        max_velocity = float(
+            np.max(
+                velocity
+            )
+        )
+
+        flight_time = float(
+            t[-1]
+        )
+
+        return jsonify({
+
+            "status": "success",
+
+            "input": {
+
+                "thrust": thrust,
+
+                "burn_time": burn_time,
+
+                "wind_speed": wind_speed,
+
+                "dry_mass": dry_mass,
+
+                "wet_mass": wet_mass,
+
+                "drag_cd": drag_cd,
+            },
+
+            "trajectory": {
+
+                "time_s": (
+                    to_float_list(
+                        t
+                    )
+                ),
+
+                "downrange_m": (
+                    to_float_list(
+                        x
+                    )
+                ),
+
+                "altitude_m": (
+                    to_float_list(
+                        y
+                    )
+                ),
+
+                "velocity_m_s": (
+                    to_float_list(
+                        velocity
+                    )
+                ),
+            },
+
+            "summary": {
+
+                "apogee_m": apogee,
+
+                "apogee_time_s": (
+                    apogee_time
+                ),
+
+                "downrange_m": (
+                    downrange
+                ),
+
+                "max_velocity_m_s": (
+                    max_velocity
+                ),
+
+                "flight_time_s": (
+                    flight_time
+                ),
+            },
+
+            "metadata": {
+
+                "simulation": (
+                    "DynamicTrajectory2DOF"
+                ),
+
+                "points": int(
+                    len(
+                        t
+                    )
+                ),
+            },
+        })
+
+    except Exception as error:
+
+        app.logger.exception(
+            "Trajectory simulation failed"
+        )
+
+        return jsonify({
+            "status": "error",
+            "message": str(
+                error
+            ),
+        }), 500
+
+
+# ------------------------------------------------------------
+# REAL PARAMETRIC SWEEP API
+# ------------------------------------------------------------
+
+@app.route(
+    "/api/sweep",
+    methods=["POST"],
+)
+def sweep():
+
+    data = (
+        request.get_json(
+            silent=True
+        )
+        or {}
+    )
+
+    try:
+
+        mach_min = float(
+            data.get(
+                "mach_min",
+                0.5,
+            )
+        )
+
+        mach_max = float(
+            data.get(
+                "mach_max",
+                6.0,
+            )
+        )
+
+        fineness_min = float(
+            data.get(
+                "fineness_min",
+                2.0,
+            )
+        )
+
+        fineness_max = float(
+            data.get(
+                "fineness_max",
+                10.0,
+            )
+        )
+
+        grid_size = int(
+            data.get(
+                "grid_size",
+                30,
+            )
+        )
+
+        if mach_min <= 0:
+            return json_error(
+                "Minimum Mach must be greater than zero."
+            )
+
+        if mach_max <= mach_min:
+            return json_error(
+                "Maximum Mach must be greater than minimum Mach."
+            )
+
+        if fineness_min <= 0:
+            return json_error(
+                "Minimum fineness ratio must be greater than zero."
+            )
+
+        if fineness_max <= fineness_min:
+            return json_error(
+                "Maximum fineness ratio must be greater than minimum."
+            )
+
+        grid_size = max(
+            5,
+            min(
+                grid_size,
+                100,
+            ),
+        )
+
+        machs, fineness, drag_grid = (
+            AeroThermalEngine
+            .generate_parametric_sweep(
+                mach_range=(
+                    mach_min,
+                    mach_max,
+                ),
+
+                fineness_range=(
+                    fineness_min,
+                    fineness_max,
+                ),
+
+                grid_size=grid_size,
+            )
+        )
+
+        return jsonify({
+
+            "status": "success",
+
+            "input": {
+
+                "mach_min": (
+                    mach_min
+                ),
+
+                "mach_max": (
+                    mach_max
+                ),
+
+                "fineness_min": (
+                    fineness_min
+                ),
+
+                "fineness_max": (
+                    fineness_max
+                ),
+
+                "grid_size": (
+                    grid_size
+                ),
+            },
+
+            "sweep": {
+
+                "mach": (
+                    to_float_list(
+                        machs
+                    )
+                ),
+
+                "fineness_ratio": (
+                    to_float_list(
+                        fineness
+                    )
+                ),
+
+                "drag_factor": (
+                    np.asarray(
+                        drag_grid,
+                        dtype=float,
+                    )
+                    .tolist()
+                ),
+            },
+
+            "metadata": {
+
+                "engine": (
+                    "AeroThermalEngine "
+                    "Parametric Sweep"
+                ),
+
+                "grid_size": (
+                    grid_size
+                ),
+            },
+        })
+
+    except Exception as error:
+
+        app.logger.exception(
+            "Parametric sweep failed"
+        )
+
+        return jsonify({
+            "status": "error",
+            "message": str(
+                error
+            ),
+        }), 500
+
+
+# ------------------------------------------------------------
+# LOCAL DEVELOPMENT SERVER
+# ------------------------------------------------------------
+
+if __name__ == "__main__":
+
+    port = int(
+        os.getenv(
+            "PORT",
+            "5000",
+        )
+    )
+
+    debug = (
+        os.getenv(
+            "FLASK_DEBUG",
+            "1",
+        )
+        == "1"
+    )
+
+    app.run(
+        host="0.0.0.0",
+        port=port,
+        debug=debug,
+    )

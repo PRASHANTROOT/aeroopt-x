@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>AeroOpt-X Documentation</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/documentation.css') }}"
+    />
+  </head>
+
+  <body>
+    <header class="topbar">
+      <a href="{{ url_for('index') }}" class="brand">
+        <div class="brand-mark">△</div>
+
+        <div>
+          <div class="brand-name">AeroOpt-X</div>
+
+          <div class="brand-subtitle">Engineering Documentation</div>
+        </div>
+      </a>
+
+      <nav class="top-nav">
+        <a href="{{ url_for('index') }}" class="nav-link"> Engine </a>
+
+        <a href="{{ url_for('help_page') }}" class="nav-link"> Help </a>
+
+        <button
+          id="themeToggle"
+          class="theme-btn"
+          type="button"
+          aria-label="Toggle theme"
+        >
+          ◐
+        </button>
+      </nav>
+    </header>
+
+    <div class="docs-layout">
+      <!-- SIDEBAR -->
+
+      <aside class="docs-sidebar">
+        <div class="sidebar-title">DOCUMENTATION</div>
+
+        <nav class="docs-nav">
+          <a href="#overview" class="docs-nav-link active"> Overview </a>
+
+          <a href="#getting-started" class="docs-nav-link"> Getting Started </a>
+
+          <a href="#nose-cone" class="docs-nav-link"> Nose Cone Analysis </a>
+
+          <a href="#optimization" class="docs-nav-link"> Optimization </a>
+
+          <a href="#thermal" class="docs-nav-link"> Thermal Analysis </a>
+
+          <a href="#trajectory" class="docs-nav-link"> 2DOF Trajectory </a>
+
+          <a href="#sweeps" class="docs-nav-link"> Parametric Sweeps </a>
+
+          <a href="#api" class="docs-nav-link"> API Reference </a>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="system-status">
+            <span class="status-dot"></span>
+
+            AeroOpt-X Engine
+          </div>
+        </div>
+      </aside>
+
+      <!-- DOCUMENTATION CONTENT -->
+
+      <main class="docs-main">
+        <!-- HERO -->
+
+        <section id="overview" class="docs-section hero-section">
+          <div class="eyebrow">AEROOPT-X ENGINE</div>
+
+          <h1>Documentation</h1>
+
+          <p class="hero-description">
+            AeroOpt-X is an engineering analysis environment for aerodynamic
+            geometry generation, drag estimation, optimization, aerothermal
+            calculations, trajectory simulation, and parametric analysis.
+          </p>
+
+          <div class="feature-grid">
+            <div class="feature-card">
+              <div class="feature-number">01</div>
+
+              <h3>Aerodynamics</h3>
+
+              <p>
+                Generate and compare multiple nose cone geometries using
+                backend-computed drag analysis.
+              </p>
+            </div>
+
+            <div class="feature-card">
+              <div class="feature-number">02</div>
+
+              <h3>Optimization</h3>
+
+              <p>
+                Use the SciPy SLSQP optimizer to determine an optimized
+                parabolic geometry parameter.
+              </p>
+            </div>
+
+            <div class="feature-card">
+              <div class="feature-number">03</div>
+
+              <h3>Flight Analysis</h3>
+
+              <p>
+                Simulate two-degree-of-freedom flight trajectories and evaluate
+                performance metrics.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- GETTING STARTED -->
+
+        <section id="getting-started" class="docs-section">
+          <div class="section-label">01 / GETTING STARTED</div>
+
+          <h2>Running an Analysis</h2>
+
+          <p>
+            The main AeroOpt-X Engine page provides the primary aerodynamic
+            analysis workflow.
+          </p>
+
+          <div class="step-list">
+            <div class="step">
+              <div class="step-number">1</div>
+
+              <div>
+                <h3>Configure Geometry</h3>
+
+                <p>
+                  Enter the nose cone length and base radius. Values can be
+                  entered using sliders or exact numerical inputs.
+                </p>
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-number">2</div>
+
+              <div>
+                <h3>Set Flight Conditions</h3>
+
+                <p>
+                  Select the Mach number and target altitude for atmospheric and
+                  aerodynamic calculations.
+                </p>
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-number">3</div>
+
+              <div>
+                <h3>Run Analysis</h3>
+
+                <p>
+                  Click Analyze AeroOpt-X. The browser sends the configuration
+                  to the Python backend.
+                </p>
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-number">4</div>
+
+              <div>
+                <h3>Review Results</h3>
+
+                <p>
+                  Compare drag factors, geometry profiles, thermal results, and
+                  optimization output.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- NOSE CONE -->
+
+        <section id="nose-cone" class="docs-section">
+          <div class="section-label">02 / AERODYNAMICS</div>
+
+          <h2>Nose Cone Geometry Analysis</h2>
+
+          <p>
+            AeroOpt-X generates several nose cone profiles for aerodynamic
+            comparison.
+          </p>
+
+          <div class="info-grid">
+            <article class="info-card">
+              <h3>Sears-Haack</h3>
+
+              <p>
+                A low-wave-drag body distribution commonly used as a theoretical
+                reference for supersonic aerodynamic optimization.
+              </p>
+            </article>
+
+            <article class="info-card">
+              <h3>Von Kármán</h3>
+
+              <p>
+                A smooth aerodynamic nose profile that provides a practical
+                geometry for high-speed vehicles.
+              </p>
+            </article>
+
+            <article class="info-card">
+              <h3>Tangent Ogive</h3>
+
+              <p>
+                A common engineering geometry with a curved profile that is
+                frequently used in vehicle nose design.
+              </p>
+            </article>
+
+            <article class="info-card">
+              <h3>Optimized Parabolic</h3>
+
+              <p>
+                A parameterized parabolic geometry generated using the AeroOpt-X
+                optimization workflow.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <!-- OPTIMIZATION -->
+
+        <section id="optimization" class="docs-section">
+          <div class="section-label">03 / OPTIMIZATION</div>
+
+          <h2>SciPy SLSQP Optimization</h2>
+
+          <p>
+            AeroOpt-X uses the Sequential Least Squares Programming optimization
+            method to determine the parabolic parameter that minimizes the
+            configured aerodynamic objective.
+          </p>
+
+          <div class="code-card">
+            <div class="code-title">Optimization Workflow</div>
+
+            <pre><code>1. Create geometry
+2. Configure drag solver
+3. Initialize AeroOptimizer
+4. Run SLSQP optimization
+5. Obtain optimal K parameter
+6. Generate optimized geometry
+7. Compute optimized drag</code></pre>
+          </div>
+
+          <div class="note">
+            <strong>Important:</strong>
+
+            Optimization results depend on the geometry, atmospheric conditions,
+            Mach number, and objective implementation in the Python backend.
+          </div>
+        </section>
+
+        <!-- THERMAL -->
+
+        <section id="thermal" class="docs-section">
+          <div class="section-label">04 / AEROTHERMAL</div>
+
+          <h2>Thermal and Hypersonic Analysis</h2>
+
+          <p>
+            The aerothermal module calculates atmospheric temperature,
+            stagnation temperature, and an oblique shock angle based on the
+            selected operating conditions.
+          </p>
+
+          <div class="formula-grid">
+            <div class="formula-card">
+              <span class="formula-label"> Ambient Temperature </span>
+
+              <strong> ISA Atmospheric Model </strong>
+            </div>
+
+            <div class="formula-card">
+              <span class="formula-label"> Stagnation Temperature </span>
+
+              <strong> Mach Dependent </strong>
+            </div>
+
+            <div class="formula-card">
+              <span class="formula-label"> Shock Analysis </span>
+
+              <strong> Oblique Shock Angle </strong>
+            </div>
+          </div>
+        </section>
+
+        <!-- TRAJECTORY -->
+
+        <section id="trajectory" class="docs-section">
+          <div class="section-label">05 / FLIGHT</div>
+
+          <h2>2DOF Flight Trajectory</h2>
+
+          <p>
+            The trajectory engine simulates vehicle motion in two dimensions
+            using the configured thrust, mass, drag, burn duration, and wind
+            conditions.
+          </p>
+
+          <div class="result-table">
+            <div class="table-row table-header">
+              <div>Metric</div>
+
+              <div>Description</div>
+            </div>
+
+            <div class="table-row">
+              <div>Apogee</div>
+
+              <div>Maximum altitude reached during simulation.</div>
+            </div>
+
+            <div class="table-row">
+              <div>Downrange</div>
+
+              <div>Horizontal distance traveled.</div>
+            </div>
+
+            <div class="table-row">
+              <div>Maximum Velocity</div>
+
+              <div>Highest velocity reached during flight.</div>
+            </div>
+
+            <div class="table-row">
+              <div>Flight Time</div>
+
+              <div>Total simulated trajectory duration.</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SWEEPS -->
+
+        <section id="sweeps" class="docs-section">
+          <div class="section-label">06 / PARAMETRIC ANALYSIS</div>
+
+          <h2>Parametric Sweeps</h2>
+
+          <p>
+            Parametric sweeps evaluate drag behavior across a range of Mach
+            numbers and fineness ratios.
+          </p>
+
+          <div class="info-card full">
+            <h3>Sweep Parameters</h3>
+
+            <ul>
+              <li>Minimum Mach number</li>
+
+              <li>Maximum Mach number</li>
+
+              <li>Minimum fineness ratio</li>
+
+              <li>Maximum fineness ratio</li>
+
+              <li>Computational grid size</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- API -->
+
+        <section id="api" class="docs-section">
+          <div class="section-label">07 / API REFERENCE</div>
+
+          <h2>Backend Endpoints</h2>
+
+          <div class="api-list">
+            <div class="api-row">
+              <span class="method get"> GET </span>
+
+              <code> /api/health </code>
+
+              <span> Health status </span>
+            </div>
+
+            <div class="api-row">
+              <span class="method post"> POST </span>
+
+              <code> /api/analyze </code>
+
+              <span> Full aerodynamic analysis </span>
+            </div>
+
+            <div class="api-row">
+              <span class="method post"> POST </span>
+
+              <code> /api/optimize </code>
+
+              <span> Standalone optimization </span>
+            </div>
+
+            <div class="api-row">
+              <span class="method post"> POST </span>
+
+              <code> /api/trajectory </code>
+
+              <span> 2DOF trajectory simulation </span>
+            </div>
+
+            <div class="api-row">
+              <span class="method post"> POST </span>
+
+              <code> /api/sweep </code>
+
+              <span> Parametric sweep </span>
+            </div>
+          </div>
+        </section>
+
+        <footer class="docs-footer">
+          <span> AeroOpt-X Engineering Engine </span>
+
+          <a href="{{ url_for('help_page') }}"> Need help? </a>
+        </footer>
+      </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/documentation.js') }}"></script>
+  </body>
+</html>

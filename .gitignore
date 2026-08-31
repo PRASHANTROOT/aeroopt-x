@@ -1,12 +1,47 @@
-﻿__pycache__/
-*.pyc
-.pytest_cache/
-assets/renders/
-node_modules/
-venv/
+﻿# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
 .venv/
+venv/
 env/
-dist/
-build/
-*.egg-info/
+
+# Environment variables
+.env
+.env.*
+
+# Node.js
+node_modules/
+assets/node_modules/
+
+# Flask
+instance/
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python tooling
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Temporary backup files
+*.phase1-backup
+*.phase2-backup
+*.phase3-backup
+*.phase4-backup
+*-backup
+* backup
+
+# Temporary files
+*.tmp
+*.temp
 

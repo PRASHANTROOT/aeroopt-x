@@ -2,19 +2,53 @@
 
 WORKDIR /app
 
+
+# ------------------------------------------------------------
+# SYSTEM DEPENDENCIES
+# ------------------------------------------------------------
+
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
     git \
     && rm -rf /var/lib/apt/lists/*
 
+
+# ------------------------------------------------------------
+# PYTHON DEPENDENCIES
+# ------------------------------------------------------------
+
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
+
+
+# ------------------------------------------------------------
+# APPLICATION
+# ------------------------------------------------------------
 
 COPY . .
 
-EXPOSE 8501
 
-ENV PYTHONPATH=src
+# ------------------------------------------------------------
+# PYTHON PATH
+# ------------------------------------------------------------
 
-CMD ["streamlit", "run", "app/main.py", "--server.port=8501", "--server.address=0.0.0.0"]
+ENV PYTHONPATH=/app/src
+
+ENV PYTHONUNBUFFERED=1
+
+
+# ------------------------------------------------------------
+# WEB PORT
+# ------------------------------------------------------------
+
+EXPOSE 5000
+
+
+# ------------------------------------------------------------
+# START APPLICATION
+# ------------------------------------------------------------
+
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "4", "app.main:app"]
