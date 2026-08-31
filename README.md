@@ -6,8 +6,7 @@
 ![Flask](https://img.shields.io/badge/Backend-Flask-black?logo=flask)
 ![Plotly](https://img.shields.io/badge/Visualization-Plotly-3F4F75?logo=plotly)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker)
-![License](https://img.shields.io/badge/License-MIT-green)
-
+![Copyright](https://img.shields.io/badge/Copyright-All%20Rights%20Reserved-red)
 ---
 
 # 📌 AeroOpt-X Overview
@@ -981,9 +980,17 @@ Then open a Pull Request.
 
 # 📜 License
 
-This project is licensed under the **MIT License**.
+# © Copyright
 
-See the repository license file for details.
+Copyright © 2026 Prashant. All rights reserved.
+
+AeroOpt-X, including its source code, software architecture, engineering models, documentation, visual interface, graphics, and other project materials, is the intellectual property of the project owner.
+
+No part of this repository may be copied, reproduced, modified, distributed, sublicensed, sold, or used for commercial purposes without prior written permission from the copyright owner.
+
+The source code is made publicly visible for reference and demonstration purposes only. Public availability of this repository does not grant permission to reuse, redistribute, or create derivative works from the project.
+
+For licensing, collaboration, or permission requests, please contact the repository owner.
 
 ---
 
